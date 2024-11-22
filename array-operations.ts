@@ -1,50 +1,105 @@
 import * as readlineSync from 'readline-sync';
 
 class ArrayOperations {
-    private array: number[];
-
+    // Using 16-bit signed integers (WORD)
+    private array: Int16Array;
+    
     constructor() {
         // Initialize array with 10 zeros
-        this.array = new Array(10).fill(0);
+        this.array = new Int16Array(10);
     }
 
-    // Random number generator (similar to lab 7 concept)
     private generateRandomNumber(low: number, high: number): number {
-        return Math.floor(Math.random() * (high - low + 1)) + low;
+        return Math.floor(Math.random() * (high - low + 1) + low);
     }
 
-    // 1. Generate Random Array
     private generateRandomArray(low: number, high: number): void {
-        this.array = this.array.map(() =>
-            this.generateRandomNumber(low, high)
-        );
+        // Ensure values are within 16-bit signed range
+        const validLow = Math.max(-32768, Math.min(32767, low));
+        const validHigh = Math.max(-32768, Math.min(32767, high));
+        
+        for (let i = 0; i < this.array.length; i++) {
+            this.array[i] = this.generateRandomNumber(validLow, validHigh);
+        }
     }
 
-    // 2. Multiply Array
+    // Fixed multiply array operation
     private multiplyArray(multiplier: number): void {
-        this.array = this.array.map(val => val * multiplier);
+        for (let i = 0; i < this.array.length; i++) {
+            // Perform multiplication and handle overflow
+            let result = this.array[i] * multiplier;
+            
+            // Convert to 16-bit signed integer
+            if (result > 32767) {
+                result = ((result & 0xFFFF) - 65536);
+            } else if (result < -32768) {
+                result = ((result & 0xFFFF) - 65536);
+            }
+            
+            this.array[i] = result;
+        }
     }
 
-    // 3. Divide Array
+    // Fixed divide array operation
     private divideArray(divisor: number): void {
-        this.array = this.array.map(val =>
-            divisor !== 0 ? Math.trunc(val / divisor) : val
-        );
+        if (divisor === 0) {
+            console.log("Error: Division by zero!");
+            return;
+        }
+
+        for (let i = 0; i < this.array.length; i++) {
+            // Perform signed division
+            const result = Math.trunc(this.array[i] / divisor);
+            
+            // Ensure result is within 16-bit signed range
+            if (result > 32767) {
+                this.array[i] = 32767;  // Max positive value
+            } else if (result < -32768) {
+                this.array[i] = -32768;  // Max negative value
+            } else {
+                this.array[i] = result;
+            }
+        }
     }
 
-    // 4. Mod Array
+    // Fixed mod array operation
     private modArray(divisor: number): void {
-        this.array = this.array.map(val =>
-            divisor !== 0 ? val % divisor : val
-        );
+        if (divisor === 0) {
+            console.log("Error: Modulo by zero!");
+            return;
+        }
+
+        for (let i = 0; i < this.array.length; i++) {
+            // Handle negative numbers correctly for modulo
+            let result = this.array[i] % divisor;
+            
+            // Ensure positive result for negative numbers
+            if (result < 0) {
+                result += Math.abs(divisor);
+            }
+            
+            // Ensure result is within 16-bit signed range
+            if (result > 32767) {
+                result = 32767;
+            } else if (result < -32768) {
+                result = -32768;
+            }
+            
+            this.array[i] = result;
+        }
     }
 
-    // 5. Display Array
     private displayArray(): void {
-        console.log('[' + this.array.join(', ') + ']');
+        process.stdout.write('[');
+        for (let i = 0; i < this.array.length; i++) {
+            process.stdout.write(this.array[i].toString());
+            if (i < this.array.length - 1) {
+                process.stdout.write(', ');
+            }
+        }
+        process.stdout.write(']\n');
     }
 
-    // Main menu loop
     public run(): void {
         while (true) {
             console.log("\nMain Menu:");
@@ -55,14 +110,20 @@ class ArrayOperations {
             console.log("5 - Display Array");
             console.log("0 - Exit");
 
-            // Get user choice
-            const choice = readlineSync.questionInt("Your choice: ");
-
             try {
+                const choice = readlineSync.questionInt("Your choice: ");
+
                 switch (choice) {
+                    case 0:
+                        console.log("Exiting program.");
+                        return;
                     case 1:
                         const low = readlineSync.questionInt("Enter low value: ");
                         const high = readlineSync.questionInt("Enter high value: ");
+                        if (low > high) {
+                            console.log("Error: Low value must be less than or equal to high value.");
+                            break;
+                        }
                         this.generateRandomArray(low, high);
                         break;
                     case 2:
@@ -80,9 +141,6 @@ class ArrayOperations {
                     case 5:
                         this.displayArray();
                         break;
-                    case 0:
-                        console.log("Exiting program.");
-                        return;
                     default:
                         console.log("Invalid choice. Please try again.");
                 }
